@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEER CONSTRUCTION LTD — Bot Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap');
+
+  :root {
+    --yellow:  #F5C500;
+    --dark:    #1A1A1A;
+    --steel:   #2C3E50;
+    --concrete:#4A5568;
+    --light:   #F7F8FA;
+    --white:   #FFFFFF;
+    --green:   #27AE60;
+    --red:     #E74C3C;
+    --blue:    #2980B9;
+    --border:  #E2E8F0;
+    --shadow:  0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--light);
+    color: var(--dark);
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed; top: 0; left: 0;
+    width: 240px; height: 100vh;
+    background: var(--dark);
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+
+  .logo {
+    padding: 24px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .logo-tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700;
+    color: var(--yellow);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .logo-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: var(--white);
+    line-height: 1.1;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+  }
+
+  nav { padding: 16px 0; flex: 1; }
+
+  .nav-label {
+    font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 8px 20px 4px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+
+  .nav-item:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+  .nav-item.active { color: var(--yellow); border-left-color: var(--yellow); background: rgba(245,197,0,0.08); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .status-dot {
+    display: inline-block; width: 7px; height: 7px;
+    background: var(--green); border-radius: 50%;
+    margin-right: 6px; animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 240px;
+    padding: 28px 32px;
+    min-height: 100vh;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700;
+    color: var(--dark);
+  }
+
+  .page-subtitle { font-size: 13px; color: var(--concrete); margin-top: 2px; }
+
+  .refresh-btn {
+    padding: 8px 16px;
+    background: var(--yellow);
+    color: var(--dark);
+    border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .refresh-btn:hover { opacity: 0.85; }
+
+  /* ── Stat Cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--yellow);
+  }
+
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--concrete); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 700; color: var(--dark); margin: 4px 0; }
+  .stat-icon  { font-size: 22px; float: right; margin-top: -30px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--white);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .card-title { font-size: 15px; font-weight: 600; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 11px; font-weight: 600;
+    color: var(--concrete);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 10px 16px;
+    background: var(--light);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 11px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #FAFBFC; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .badge-new       { background: #EBF8FF; color: #2980B9; }
+  .badge-pending   { background: #FFF8E1; color: #F39C12; }
+  .badge-confirmed { background: #E8F8F0; color: var(--green); }
+  .badge-in-progress { background: #EDE7F6; color: #8E44AD; }
+  .badge-completed { background: #E8F8F0; color: var(--green); }
+  .badge-cancelled { background: #FDEDEC; color: var(--red); }
+  .badge-booked    { background: #E8F8F0; color: var(--green); }
+  .badge-ordered   { background: #EDE7F6; color: #8E44AD; }
+  .badge-quoted    { background: #FFF8E1; color: #F39C12; }
+  .badge-interested { background: #EBF8FF; color: var(--blue); }
+
+  /* ── Status selector ── */
+  select.status-sel {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    background: var(--white);
+  }
+
+  /* ── Chat view ── */
+  .chat-container { display: flex; height: 500px; }
+
+  .chat-list {
+    width: 260px; min-width: 260px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .chat-list-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .chat-list-item:hover   { background: var(--light); }
+  .chat-list-item.active  { background: #FFF9E0; border-left: 3px solid var(--yellow); }
+  .chat-list-name         { font-size: 13px; font-weight: 600; }
+  .chat-list-phone        { font-size: 11px; color: var(--concrete); }
+
+  .chat-messages {
+    flex: 1; padding: 16px;
+    overflow-y: auto;
+    background: #ECE5DD;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .chat-empty {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--concrete); font-size: 14px;
+    background: #ECE5DD;
+  }
+
+  .bubble {
+    max-width: 70%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px; line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .bubble.user      { align-self: flex-start; background: var(--white); border-radius: 0 8px 8px 8px; }
+  .bubble.assistant { align-self: flex-end; background: #DCF8C6; border-radius: 8px 0 8px 8px; }
+  .bubble-time      { font-size: 10px; color: var(--concrete); margin-top: 2px; text-align: right; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 40px; color: var(--concrete); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 8px; }
+
+  /* ── Setup guide ── */
+  .setup-step {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-num {
+    width: 32px; height: 32px; min-width: 32px;
+    background: var(--yellow);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700;
+    color: var(--dark);
+  }
+
+  .step-title   { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .step-desc    { font-size: 13px; color: var(--concrete); line-height: 1.5; }
+  .step-code    { font-family: monospace; background: var(--light); padding: 8px 12px; border-radius: 5px; font-size: 12px; margin-top: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-tag">WhatsApp Bot</div>
+    <div class="logo-name">NEER<br>CONSTRUCTION</div>
+    <div class="logo-sub">LTD — Management Dashboard</div>
+  </div>
+  <nav>
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Dashboard</div>
+    <div class="nav-label">Clients</div>
+    <div class="nav-item" onclick="showPage('leads')"><span class="icon">👥</span> Leads</div>
+    <div class="nav-item" onclick="showPage('chats')"><span class="icon">💬</span> Conversations</div>
+    <div class="nav-label">Business</div>
+    <div class="nav-item" onclick="showPage('bookings')"><span class="icon">📅</span> Consultations</div>
+    <div class="nav-item" onclick="showPage('orders')"><span class="icon">📋</span> Project Inquiries</div>
+    <div class="nav-label">Setup</div>
+    <div class="nav-item" onclick="showPage('setup')"><span class="icon">⚙️</span> Setup Guide</div>
+  </nav>
+  <div class="sidebar-footer">
+    <span class="status-dot"></span> Bot is running
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">NEER CONSTRUCTION LTD — WhatsApp Bot Overview</div>
+      </div>
+      <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Leads</div>
+        <div class="stat-icon">👥</div>
+        <div class="stat-value" id="stat-leads">—</div>
+        <div style="font-size:12px;color:var(--concrete)">WhatsApp contacts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Consultations</div>
+        <div class="stat-icon">📅</div>
+        <div class="stat-value" id="stat-bookings">—</div>
+        <div style="font-size:12px;color:var(--concrete)">Booked via bot</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Project Inquiries</div>
+        <div class="stat-icon">📋</div>
+        <div class="stat-value" id="stat-orders">—</div>
+        <div style="font-size:12px;color:var(--concrete)">Submitted via bot</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Messages</div>
+        <div class="stat-icon">💬</div>
+        <div class="stat-value" id="stat-messages">—</div>
+        <div style="font-size:12px;color:var(--concrete)">Total exchanged</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📅 Recent Consultations</div></div>
+        <div id="dash-bookings"><div class="empty"><div class="empty-icon">📅</div>No consultations yet</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 Recent Project Inquiries</div></div>
+        <div id="dash-orders"><div class="empty"><div class="empty-icon">📋</div>No inquiries yet</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leads -->
+  <div class="page" id="page-leads">
+    <div class="page-header">
+      <div><div class="page-title">Leads</div><div class="page-subtitle">All WhatsApp contacts</div></div>
+      <button class="refresh-btn" onclick="loadLeads()">↻ Refresh</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Phone</th><th>Name</th><th>Stage</th><th>Messages</th><th>First Seen</th><th>Last Seen</th></tr></thead>
+        <tbody id="leads-table"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Chats -->
+  <div class="page" id="page-chats">
+    <div class="page-header">
+      <div><div class="page-title">Conversations</div><div class="page-subtitle">Click a contact to view chat history</div></div>
+    </div>
+    <div class="card">
+      <div class="chat-container">
+        <div class="chat-list" id="chat-list"><div class="empty" style="padding:20px;font-size:13px">Loading…</div></div>
+        <div class="chat-empty" id="chat-messages-empty">← Select a contact</div>
+        <div class="chat-messages" id="chat-messages" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bookings -->
+  <div class="page" id="page-bookings">
+    <div class="page-header">
+      <div><div class="page-title">Consultations</div><div class="page-subtitle">Appointments booked via WhatsApp bot</div></div>
+      <button class="refresh-btn" onclick="loadBookings()">↻ Refresh</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Date</th><th>Time</th><th>Notes</th><th>Status</th></tr></thead>
+        <tbody id="bookings-table"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Orders -->
+  <div class="page" id="page-orders">
+    <div class="page-header">
+      <div><div class="page-title">Project Inquiries</div><div class="page-subtitle">Project submissions from WhatsApp</div></div>
+      <button class="refresh-btn" onclick="loadOrders()">↻ Refresh</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Location</th><th>Budget</th><th>Details</th><th>Status</th></tr></thead>
+        <tbody id="orders-table"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Setup -->
+  <div class="page" id="page-setup">
+    <div class="page-header">
+      <div><div class="page-title">Setup Guide</div><div class="page-subtitle">Connect your WhatsApp Business account — step by step</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">🚀 How to Go Live in 4 Steps</div></div>
+
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Get a Meta Developer Account & WhatsApp API Access</div>
+          <div class="step-desc">
+            Go to <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> → Create an App → Choose "Business" → Add the WhatsApp product.<br><br>
+            You will get:<br>
+            • <strong>Access Token</strong> (WHATSAPP_TOKEN)<br>
+            • <strong>Phone Number ID</strong> (WHATSAPP_PHONE_ID)
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Get Your Claude (Anthropic) API Key</div>
+          <div class="step-desc">
+            Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → Sign up → API Keys → Create Key.<br>
+            This is your <strong>ANTHROPIC_API_KEY</strong>.
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Upload files to your server & install</div>
+          <div class="step-desc">Upload all files to your server, then run:</div>
+          <div class="step-code">npm install
+cp .env.example .env
+nano .env          # fill in your 4 keys
+node server.js</div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">Connect webhook in Meta Developer Console</div>
+          <div class="step-desc">
+            In Meta Console → WhatsApp → Configuration → Webhook:<br><br>
+            • <strong>Callback URL:</strong> <code>http://YOUR-SERVER-IP:3000/webhook</code><br>
+            • <strong>Verify Token:</strong> same value as your <code>VERIFY_TOKEN</code> in .env<br>
+            • Subscribe to: <strong>messages</strong><br><br>
+            ✅ Done! Your bot is live.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚙️ Your .env File (fill these in)</div></div>
+      <div style="padding:20px">
+        <div class="step-code">WHATSAPP_TOKEN=your_whatsapp_access_token_here
+WHATSAPP_PHONE_ID=your_phone_number_id_here
+VERIFY_TOKEN=NeerBotSecret2024
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+PORT=3000</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">💬 Bot Commands (what customers can type)</div></div>
+      <table>
+        <thead><tr><th>Command</th><th>What Happens</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOOK</code></td><td>Starts the consultation booking flow (collects name, service, date, time)</td></tr>
+          <tr><td><code>ORDER</code></td><td>Starts the project inquiry flow (collects service, location, budget, details)</td></tr>
+          <tr><td><code>PRICING</code> or <code>PRICE</code></td><td>Sends the full pricing guide</td></tr>
+          <tr><td><code>SERVICES</code></td><td>Sends the full list of services</td></tr>
+          <tr><td><code>CONTACT</code></td><td>Sends office contact details</td></tr>
+          <tr><td><code>HOURS</code></td><td>Sends business hours</td></tr>
+          <tr><td><code>HI</code> / <code>HELLO</code></td><td>Greeting message</td></tr>
+          <tr><td>Anything else</td><td>Claude AI replies intelligently as Maya 🤖</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+  // ── Page navigation ──────────────────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (name === 'dashboard') loadAll();
+    if (name === 'leads')     loadLeads();
+    if (name === 'bookings')  loadBookings();
+    if (name === 'orders')    loadOrders();
+    if (name === 'chats')     loadChatList();
+  }
+
+  // ── Fetch helpers ────────────────────────────────────────────────────────
+  async function api(url) {
+    const r = await fetch(url);
+    return r.json();
+  }
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    return new Date(s).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function badge(status) {
+    return `<span class="badge badge-${status}">${status}</span>`;
+  }
+
+  // ── Stats ────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    const s = await api('/api/stats');
+    document.getElementById('stat-leads').textContent    = s.leads;
+    document.getElementById('stat-bookings').textContent = s.bookings;
+    document.getElementById('stat-orders').textContent   = s.orders;
+    document.getElementById('stat-messages').textContent = s.messages;
+  }
+
+  // ── Dashboard quick lists ────────────────────────────────────────────────
+  async function loadDashBookings() {
+    const data = await api('/api/bookings');
+    const el = document.getElementById('dash-bookings');
+    if (!data.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📅</div>No consultations yet</div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>Service</th><th>Date</th><th>Status</th></tr></thead><tbody>` +
+      data.slice(0,5).map(b => `<tr>
+        <td>${b.name||'—'}</td>
+        <td>${b.service||'—'}</td>
+        <td>${b.date||'—'} ${b.time||''}</td>
+        <td>${badge(b.status)}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  }
+
+  async function loadDashOrders() {
+    const data = await api('/api/orders');
+    const el = document.getElementById('dash-orders');
+    if (!data.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>No inquiries yet</div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>Service</th><th>Budget</th><th>Status</th></tr></thead><tbody>` +
+      data.slice(0,5).map(o => `<tr>
+        <td>${o.name||'—'}</td>
+        <td>${o.service||'—'}</td>
+        <td>${o.budget||'—'}</td>
+        <td>${badge(o.status)}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  }
+
+  function loadAll() { loadStats(); loadDashBookings(); loadDashOrders(); }
+
+  // ── Leads ────────────────────────────────────────────────────────────────
+  async function loadLeads() {
+    const data = await api('/api/leads');
+    const tb = document.getElementById('leads-table');
+    if (!data.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div>No leads yet</div></td></tr>'; return; }
+    tb.innerHTML = data.map(l => `<tr>
+      <td>${l.phone}</td>
+      <td>${l.name||'—'}</td>
+      <td>${badge(l.stage||'new')}</td>
+      <td>${l.msg_count}</td>
+      <td>${fmtDate(l.first_seen)}</td>
+      <td>${fmtDate(l.last_seen)}</td>
+    </tr>`).join('');
+  }
+
+  // ── Bookings ─────────────────────────────────────────────────────────────
+  async function loadBookings() {
+    const data = await api('/api/bookings');
+    const tb = document.getElementById('bookings-table');
+    if (!data.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">📅</div>No consultations booked yet</div></td></tr>'; return; }
+    tb.innerHTML = data.map(b => `<tr>
+      <td>${b.name||'—'}</td>
+      <td>${b.phone}</td>
+      <td>${b.service||'—'}</td>
+      <td>${b.date||'—'}</td>
+      <td>${b.time||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${b.notes||''}">${b.notes||'—'}</td>
+      <td>
+        <select class="status-sel" onchange="updateBooking(${b.id}, this.value)">
+          ${['pending','confirmed','in-progress','completed','cancelled'].map(s =>
+            `<option value="${s}" ${b.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`).join('');
+  }
+
+  async function updateBooking(id, status) {
+    await fetch(`/api/bookings/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+  }
+
+  // ── Orders ───────────────────────────────────────────────────────────────
+  async function loadOrders() {
+    const data = await api('/api/orders');
+    const tb = document.getElementById('orders-table');
+    if (!data.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div>No project inquiries yet</div></td></tr>'; return; }
+    tb.innerHTML = data.map(o => `<tr>
+      <td>${o.name||'—'}</td>
+      <td>${o.phone}</td>
+      <td>${o.service||'—'}</td>
+      <td>${o.location||'—'}</td>
+      <td>${o.budget||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.details||''}">${o.details||'—'}</td>
+      <td>
+        <select class="status-sel" onchange="updateOrder(${o.id}, this.value)">
+          ${['new','in-progress','quoted','completed','cancelled'].map(s =>
+            `<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`).join('');
+  }
+
+  async function updateOrder(id, status) {
+    await fetch(`/api/orders/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+  }
+
+  // ── Chat view ────────────────────────────────────────────────────────────
+  async function loadChatList() {
+    const leads = await api('/api/leads');
+    const el = document.getElementById('chat-list');
+    if (!leads.length) { el.innerHTML = '<div class="empty" style="padding:20px;font-size:13px">No contacts yet</div>'; return; }
+    el.innerHTML = leads.map(l => `
+      <div class="chat-list-item" onclick="loadChat('${l.phone}', this)">
+        <div class="chat-list-name">${l.name !== 'Unknown' ? l.name : '📱 ' + l.phone}</div>
+        <div class="chat-list-phone">${l.phone} · ${l.msg_count} msgs</div>
+      </div>`).join('');
+  }
+
+  async function loadChat(phone, el) {
+    document.querySelectorAll('.chat-list-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+
+    const msgs = await api('/api/messages/' + phone);
+    const box  = document.getElementById('chat-messages');
+    const empty= document.getElementById('chat-messages-empty');
+
+    if (!msgs.length) {
+      box.style.display = 'none';
+      empty.style.display = 'flex';
+      empty.textContent = 'No messages for this contact';
+      return;
+    }
+
+    empty.style.display = 'none';
+    box.style.display   = 'flex';
+    box.innerHTML = msgs.map(m => `
+      <div class="bubble ${m.role}">
+        ${m.content}
+        <div class="bubble-time">${fmtDate(m.created_at)}</div>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  loadAll();
+  setInterval(loadAll, 30000); // auto-refresh every 30s
+</script>
+</body>
+</html>
