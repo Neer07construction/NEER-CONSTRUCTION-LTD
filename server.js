@@ -1,7 +1,7 @@
 /**
  * ============================================================
  *  NEER CONSTRUCTION LTD — WhatsApp AI Sales Bot
- *  Full Production Server
+ *  Full Production Server (Render-compatible, no native deps)
  * ============================================================
  *
  *  FEATURES:
@@ -11,22 +11,19 @@
  *    ✅ Appointment booking flow
  *    ✅ Pricing info auto-send
  *    ✅ Image & voice message handling
- *    ✅ SQLite database — leads, chats, bookings, orders
+ *    ✅ JSON file database — leads, chats, bookings, orders (no compiling needed)
  *    ✅ Web dashboard — manage everything from browser
  *
- *  SETUP (run these commands on your server):
+ *  SETUP:
  *    npm install
  *    cp .env.example .env        ← fill in your keys
  *    node server.js
- *
- *  DASHBOARD:  http://your-server-ip:3000/dashboard
- *  WEBHOOK:    http://your-server-ip:3000/webhook
  * ============================================================
  */
 
 const express  = require("express");
 const axios    = require("axios");
-const Database = require("better-sqlite3");
+const fs       = require("fs");
 const path     = require("path");
 
 const app = express();
@@ -42,67 +39,87 @@ const {
   PORT = 3000,
 } = process.env;
 
-// ── Database Setup ────────────────────────────────────────────────────────────
-const db = new Database(path.join(__dirname, "neer_bot.db"));
-db.exec(`
-  CREATE TABLE IF NOT EXISTS leads (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone      TEXT UNIQUE NOT NULL,
-    name       TEXT DEFAULT 'Unknown',
-    first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_seen  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    msg_count  INTEGER DEFAULT 0,
-    stage      TEXT DEFAULT 'new'   -- new | interested | quoted | booked | ordered
-  );
+// ── Simple JSON File Database (no native compilation needed) ────────────────
+const DB_FILE = path.join(__dirname, "data.json");
 
-  CREATE TABLE IF NOT EXISTS messages (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone      TEXT NOT NULL,
-    role       TEXT NOT NULL,
-    content    TEXT NOT NULL,
-    type       TEXT DEFAULT 'text',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+function loadDB() {
+  if (!fs.existsSync(DB_FILE)) {
+    const initial = { leads: [], messages: [], bookings: [], orders: [], nextId: 1 };
+    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
+    return initial;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  } catch (e) {
+    return { leads: [], messages: [], bookings: [], orders: [], nextId: 1 };
+  }
+}
 
-  CREATE TABLE IF NOT EXISTS bookings (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone      TEXT NOT NULL,
-    name       TEXT,
-    service    TEXT,
-    date       TEXT,
-    time       TEXT,
-    notes      TEXT,
-    status     TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+function saveDB(db) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
 
-  CREATE TABLE IF NOT EXISTS orders (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone      TEXT NOT NULL,
-    name       TEXT,
-    service    TEXT,
-    location   TEXT,
-    budget     TEXT,
-    details    TEXT,
-    status     TEXT DEFAULT 'new',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
+function nextId(db) {
+  const id = db.nextId || 1;
+  db.nextId = id + 1;
+  return id;
+}
 
-// Prepared statements
-const stmts = {
-  upsertLead:  db.prepare(`INSERT INTO leads (phone) VALUES (?) ON CONFLICT(phone) DO UPDATE SET last_seen=CURRENT_TIMESTAMP, msg_count=msg_count+1`),
-  updateStage: db.prepare(`UPDATE leads SET stage=? WHERE phone=?`),
-  updateName:  db.prepare(`UPDATE leads SET name=? WHERE phone=?`),
-  insertMsg:   db.prepare(`INSERT INTO messages (phone, role, content, type) VALUES (?, ?, ?, ?)`),
-  getHistory:  db.prepare(`SELECT role, content FROM messages WHERE phone=? ORDER BY created_at DESC LIMIT 20`),
-  insertBook:  db.prepare(`INSERT INTO bookings (phone, name, service, date, time, notes) VALUES (?,?,?,?,?,?)`),
-  insertOrder: db.prepare(`INSERT INTO orders (phone, name, service, location, budget, details) VALUES (?,?,?,?,?,?)`),
-  getLead:     db.prepare(`SELECT * FROM leads WHERE phone=?`),
-};
+// ── DB Helper Functions ───────────────────────────────────────────────────────
+function upsertLead(phone) {
+  const db = loadDB();
+  let lead = db.leads.find(l => l.phone === phone);
+  const now = new Date().toISOString();
+  if (lead) {
+    lead.last_seen = now;
+    lead.msg_count = (lead.msg_count || 0) + 1;
+  } else {
+    lead = { id: nextId(db), phone, name: "Unknown", first_seen: now, last_seen: now, msg_count: 1, stage: "new" };
+    db.leads.push(lead);
+  }
+  saveDB(db);
+}
 
-// ── In-memory booking/order state machine per user ───────────────────────────
-const userState = {}; // { phone: { flow: 'booking'|'order', step: 0, data: {} } }
+function updateLeadStage(phone, stage) {
+  const db = loadDB();
+  const lead = db.leads.find(l => l.phone === phone);
+  if (lead) { lead.stage = stage; saveDB(db); }
+}
+
+function updateLeadName(phone, name) {
+  const db = loadDB();
+  const lead = db.leads.find(l => l.phone === phone);
+  if (lead) { lead.name = name; saveDB(db); }
+}
+
+function insertMsg(phone, role, content, type = "text") {
+  const db = loadDB();
+  db.messages.push({ id: nextId(db), phone, role, content, type, created_at: new Date().toISOString() });
+  saveDB(db);
+}
+
+function getHistory(phone, limit = 20) {
+  const db = loadDB();
+  return db.messages
+    .filter(m => m.phone === phone)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .slice(-limit);
+}
+
+function insertBooking(phone, name, service, date, time, notes) {
+  const db = loadDB();
+  db.bookings.push({ id: nextId(db), phone, name, service, date, time, notes, status: "pending", created_at: new Date().toISOString() });
+  saveDB(db);
+}
+
+function insertOrder(phone, name, service, location, budget, details) {
+  const db = loadDB();
+  db.orders.push({ id: nextId(db), phone, name, service, location, budget, details, status: "new", created_at: new Date().toISOString() });
+  saveDB(db);
+}
+
+// ── In-memory booking/order state machine per user (resets on restart, that's fine) ──
+const userState = {};
 
 // ── Neer Construction System Prompt ──────────────────────────────────────────
 const SYSTEM_PROMPT = `You are Maya, the professional AI assistant for NEER CONSTRUCTION LTD — a trusted construction and engineering services company.
@@ -240,28 +257,25 @@ async function handleFlow(phone, text) {
   const steps = state.flow === "booking" ? BOOKING_STEPS : ORDER_STEPS;
   const currentStep = steps[state.step];
 
-  // Save answer (handle SKIP)
   state.data[currentStep.key] = text.toLowerCase() === "skip" ? "N/A" : text;
   state.step++;
 
   if (state.step < steps.length) {
-    // Next question
     return steps[state.step].question;
   }
 
-  // Flow complete — save to DB
   if (state.flow === "booking") {
     const d = state.data;
-    stmts.insertBook.run(phone, d.name, d.service, d.date, d.time, d.notes);
-    stmts.updateStage.run("booked", phone);
-    stmts.updateName.run(d.name, phone);
+    insertBooking(phone, d.name, d.service, d.date, d.time, d.notes);
+    updateLeadStage(phone, "booked");
+    updateLeadName(phone, d.name);
     delete userState[phone];
     return `✅ *Consultation Booked Successfully!*\n\n📋 *Name:* ${d.name}\n🏗️ *Service:* ${d.service}\n📅 *Date:* ${d.date}\n🕐 *Time:* ${d.time}\n📝 *Notes:* ${d.notes}\n\nOur team will confirm your appointment shortly. Thank you for choosing *NEER CONSTRUCTION LTD*! 🏗️`;
   } else {
     const d = state.data;
-    stmts.insertOrder.run(phone, d.name, d.service, d.location, d.budget, d.details);
-    stmts.updateStage.run("ordered", phone);
-    stmts.updateName.run(d.name, phone);
+    insertOrder(phone, d.name, d.service, d.location, d.budget, d.details);
+    updateLeadStage(phone, "ordered");
+    updateLeadName(phone, d.name);
     delete userState[phone];
     return `✅ *Project Inquiry Submitted!*\n\n📋 *Name:* ${d.name}\n🏗️ *Service:* ${d.service}\n📍 *Location:* ${d.location}\n💰 *Budget:* ${d.budget}\n📝 *Details:* ${d.details}\n\nOur team will review your inquiry and get back to you within 24 hours with a tailored proposal. Thank you for choosing *NEER CONSTRUCTION LTD*! 🏗️`;
   }
@@ -310,18 +324,15 @@ app.post("/webhook", async (req, res) => {
 
   console.log(`📩 [${type}] from ${from}: ${text}`);
 
-  // Track lead
-  stmts.upsertLead.run(from);
-  stmts.insertMsg.run(from, "user", text, type);
+  upsertLead(from);
+  insertMsg(from, "user", text, type);
 
   let reply = "";
 
   try {
-    // 1. Check if user is in a booking or order flow
     if (userState[from]) {
       reply = await handleFlow(from, text);
     }
-    // 2. Check for BOOK / ORDER trigger words
     else if (/^book$/i.test(text)) {
       userState[from] = { flow: "booking", step: 0, data: {} };
       reply = BOOKING_STEPS[0].question;
@@ -330,18 +341,16 @@ app.post("/webhook", async (req, res) => {
       userState[from] = { flow: "order", step: 0, data: {} };
       reply = ORDER_STEPS[0].question;
     }
-    // 3. Check keyword shortcuts
     else {
       const kw = checkKeyword(text);
       if (kw) {
         reply = kw;
       } else {
-        // 4. AI reply
         reply = await getAIReply(from, text);
       }
     }
 
-    stmts.insertMsg.run(from, "assistant", reply, "text");
+    insertMsg(from, "assistant", reply, "text");
     await sendMsg(from, reply);
     console.log(`📤 Replied to ${from}`);
 
@@ -352,7 +361,7 @@ app.post("/webhook", async (req, res) => {
 
 // ── Claude AI Reply ───────────────────────────────────────────────────────────
 async function getAIReply(phone, userMessage) {
-  const rows    = stmts.getHistory.all(phone).reverse();
+  const rows    = getHistory(phone);
   const history = rows.map(r => ({ role: r.role, content: r.content }));
   history.push({ role: "user", content: userMessage });
 
@@ -392,38 +401,48 @@ async function sendMsg(to, text) {
 
 // ── Dashboard API endpoints ───────────────────────────────────────────────────
 app.get("/api/stats", (req, res) => {
-  const leads    = db.prepare("SELECT COUNT(*) as c FROM leads").get().c;
-  const bookings = db.prepare("SELECT COUNT(*) as c FROM bookings").get().c;
-  const orders   = db.prepare("SELECT COUNT(*) as c FROM orders").get().c;
-  const messages = db.prepare("SELECT COUNT(*) as c FROM messages").get().c;
-  res.json({ leads, bookings, orders, messages });
+  const db = loadDB();
+  res.json({
+    leads: db.leads.length,
+    bookings: db.bookings.length,
+    orders: db.orders.length,
+    messages: db.messages.length,
+  });
 });
 
 app.get("/api/leads", (req, res) => {
-  res.json(db.prepare("SELECT * FROM leads ORDER BY last_seen DESC LIMIT 100").all());
+  const db = loadDB();
+  res.json([...db.leads].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen)));
 });
 
 app.get("/api/bookings", (req, res) => {
-  res.json(db.prepare("SELECT * FROM bookings ORDER BY created_at DESC").all());
+  const db = loadDB();
+  res.json([...db.bookings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
 });
 
 app.get("/api/orders", (req, res) => {
-  res.json(db.prepare("SELECT * FROM orders ORDER BY created_at DESC").all());
+  const db = loadDB();
+  res.json([...db.orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
 });
 
 app.get("/api/messages/:phone", (req, res) => {
-  res.json(db.prepare("SELECT * FROM messages WHERE phone=? ORDER BY created_at ASC").all(req.params.phone));
+  const db = loadDB();
+  res.json(db.messages
+    .filter(m => m.phone === req.params.phone)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
 });
 
 app.patch("/api/bookings/:id", (req, res) => {
-  const { status } = req.body;
-  db.prepare("UPDATE bookings SET status=? WHERE id=?").run(status, req.params.id);
+  const db = loadDB();
+  const b = db.bookings.find(x => x.id === parseInt(req.params.id));
+  if (b) { b.status = req.body.status; saveDB(db); }
   res.json({ ok: true });
 });
 
 app.patch("/api/orders/:id", (req, res) => {
-  const { status } = req.body;
-  db.prepare("UPDATE orders SET status=? WHERE id=?").run(status, req.params.id);
+  const db = loadDB();
+  const o = db.orders.find(x => x.id === parseInt(req.params.id));
+  if (o) { o.status = req.body.status; saveDB(db); }
   res.json({ ok: true });
 });
 
@@ -435,7 +454,6 @@ app.listen(PORT, () => {
   ============================================
    ✅  Server running on port ${PORT}
    📊  Dashboard: http://localhost:${PORT}
-   🔗  Webhook:   http://your-server-ip:${PORT}/webhook
   ============================================
   `);
 });
